@@ -17,7 +17,8 @@ POP_SIZE = 20
 GENERATIONS = 100
 MUTATION_RATE = 0.2
 CROSSOVER_RATE = 0.9
-
+TOURNAMENT_SIZE = 4
+MATING_POOL_SIZE = 10
 
 # Physical keyboard coordinates (x, y). Used for fitness function
 #
@@ -195,14 +196,20 @@ def display_keyboard(individual):
     print("   " + " ".join(individual[19:26]))
 
 
-# Fitness Evaluation - TODO
-def fitness_keyboard():
+# Evaluate fitness of an individual - TODO
+def fitness_keyboard(individual):
     pass
 
+# Evaluate fitness of a list of individuals (e.g. population, offspring) - TODO
+def fitness_batch(batch):
+    return [fitness_keyboard(indiv) for indiv in batch]
 
 # Mutation - TODO
-def permutation_swap():
-    pass
+def permutation_swap(indiv):
+    # Pick two random indices and swap the characters at them
+    first = random.randint(0, len(indiv)-1)
+    second = random.randint(0, len(indiv)-1)
+    indiv[first], indiv[second] = indiv[second], indiv[first]
 
 
 # Crossover - TODO
@@ -211,30 +218,78 @@ def permutation_pmx():
 
 
 # Parent Selection - TODO
-def tournament():
-    pass
+def tournament(fitness):
+    selected = []
+    losers = random.sample(range(0,len(fitness)), TOURNAMENT_SIZE)
+    while len(selected) < MATING_POOL_SIZE:
+        pass # selecting
+
+    return selected, losers
 
 
 # Survivor Selection - TODO
-def replacement():
+def replacement(offspring, to_replace, population):
+    """
+    Replaces losers of tournament with new individuals
+    Parameters:
+        offspring: the individuals that are being added
+        to_replace: a list of indices for the individuls in population to be replaced
+        population: the actual population where new individuals are added
+    Usage:
+        e.g. population[to_replace[i]] = offspring[i]
+    """
     pass
 
 
+# def main():
+#     # Demonstrate that the representation works.
+#     population = initialize_population(POP_SIZE)
+#     individual = population[0]
+
+#     print("Genotype:")
+#     print(individual)
+
+#     print("\nPhenotype:")
+#     display_keyboard(individual)
+
+#     print("\nInformation about letter E:")
+#     print(get_letter_info(individual, "E"))
+
 def main():
-    # Demonstrate that the representation works.
+    # Initialize population
+    current_gen = 0
     population = initialize_population(POP_SIZE)
+    population_fitness = fitness_batch(population)
+    best_solution = list("QWERTYUIOPASDFGHJKLZXCVBNM")
+    best_fit = fitness_keyboard(best_solution)
+    best_gen = -1
+    print("Generation", current_gen, ": Best of generation", max(population_fitness), "\tGeneration average", sum(population_fitness) / POP_SIZE)
 
-    individual = population[0]
+    # Begin evolution
+    while current_gen < GENERATIONS:
+        current_gen += 1
+        # Parent selection
+        parent_indices = tournament()
 
-    print("Genotype:")
-    print(individual)
+        # Randomly pair by shuffling
+        random.shuffle(parent_indices)
 
-    print("\nPhenotype:")
-    display_keyboard(individual)
+        # Reproduce/recombine
 
-    print("\nInformation about letter E:")
-    print(get_letter_info(individual, "E"))
+        # Mutate
 
+        # Replace
+
+        # Re-evaluate fitnesses
+        pop_max = max(population_fitness)
+        if pop_max >= best_fit:
+            best_solution = population[population_fitness.index(pop_max)]
+            best_fit = pop_max
+            best_gen = current_gen
+
+    # Print the result
+    print(best_solution, "\n")
+    display_keyboard(best_solution)
 
 if __name__ == "__main__":
     main()
