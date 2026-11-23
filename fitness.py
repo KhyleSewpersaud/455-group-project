@@ -215,27 +215,20 @@ def fitness_keyboard(individual, sample_texts=SAMPLE_TEXTS):
         
             curr_loc = letter_to_location[ch]
         
-            if prev_loc is not None and KEY_FINGERS == KEY_FINGERS[curr_loc]:
-                # Consecutive use of same finger
+            if prev_loc == curr_loc:
+                # Same key twice in a row -> no distance traveled
+                pass
+            elif prev_loc is not None and KEY_FINGERS[prev_loc] == KEY_FINGERS[curr_loc]:
+                # Consecutive use of same finger on a different key:
                 # Penalize same-finger repeat and raise sequential penalty multiplier
                 fitness += DISTANCE_LOOKUP[(prev_loc, curr_loc)] * penalty
                 penalty += PENALTY_INCREASE
-                continue
-            else: 
-                # Reset penalty multiplier
-                penalty = PENALTY_MIN
-
-            if prev_loc == curr_loc:
-                # Same key -> no distance traveled
-                continue
             else:
-                # Different finger/start of word (means finger returned to home)
-                # print(KEY_FINGERS[curr_loc])
-                # print(HOME_KEY_INDICES[KEY_FINGERS[curr_loc]], curr_loc)
+                # Different finger or start of word (finger starts from its resting home key)
+                penalty = PENALTY_MIN
                 home_key = HOME_KEY_INDICES[KEY_FINGERS[curr_loc]]
                 fitness += DISTANCE_LOOKUP[(home_key, curr_loc)]
 
-        
             prev_loc = curr_loc
 
     # Negate fitness so the EA maximizes fitness (less penalty = higher fitness)
