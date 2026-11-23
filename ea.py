@@ -190,7 +190,7 @@ def run_ea(
     if verbose:
         print(
             "Generation",
-            current_gen,
+            str(current_gen).zfill(3),
             ": Best of generation",
             init_max,
             "\tGeneration average",
@@ -245,7 +245,7 @@ def run_ea(
         if verbose:
             print(
                 "Generation",
-                current_gen,
+                str(current_gen).zfill(3),
                 ": Best of generation",
                 pop_max,
                 "\tGeneration average",

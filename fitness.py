@@ -178,7 +178,18 @@ SAME_FINGER_PENALTY = 1  # Extra penalty whenever the same finger is used consec
 SHIFT_PENALTY = 1        # Extra penalty when Shift is required
 
 # Placeholder sample text until the full evaluation corpus is plugged in
-DEFAULT_SAMPLE_TEXT = "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG"
+SAMPLE_TEXTS = [
+    "EVERY YOUNG ZEBRA QUICKLY EXPLORES VAST JUNGLES WHILE EXAMINING COLORFUL FUNGI AND OBSERVING HOW COMPLEX ECOSYSTEMS FLOURISH BENEATH THE BLAZING SUN",
+    "BEYOND DISTANT GALAXIES MYSTERIOUS QUASARS EMIT BRILLIANT ULTRAVIOLET RADIATION WHILE ASTRONOMERS EXAMINE COSMIC PHENOMENA AND INVESTIGATE WHETHER EXTRATERRESTRIAL LIFE EXISTS",
+    "MATHEMATICIANS FREQUENTLY ANALYZE COMPLEX EQUATIONS BY UTILIZING NUMERICAL SEQUENCES AND QUADRATIC FUNCTIONS TO QUANTIFY PATTERNS AND SOLVE PERPLEXING PROBLEMS WITH PRECISION",
+    "DURING MEDIEVAL TIMES BRAVE KNIGHTS JOURNEYED ACROSS VAST KINGDOMS WHERE QUEENS GOVERNED ANCIENT CITIES AND MERCHANTS EXCHANGED EXOTIC JEWELS FOR VALUABLE RESOURCES",
+    "WHEN OXYGEN COMBINES WITH HYDROGEN UNDER SPECIFIC CONDITIONS ENERGETIC REACTIONS YIELD WATER WHILE SCIENTISTS QUANTIFY MOLECULAR CHANGES USING PRECISE LABORATORY EQUIPMENT",
+    "EXPLORERS FREQUENTLY TRAVERSE RUGGED MOUNTAINS AND VAST DESERTS TO EXAMINE GEOGRAPHIC FEATURES WHILE DOCUMENTING UNIQUE CLIMATES AND DISCOVERING UNFAMILIAR WILDLIFE",
+    "QUANTUM MECHANICS EXAMINES HOW PARTICLES BEHAVE WHEN ENERGY FLUCTUATES THROUGH MICROSCOPIC ENVIRONMENTS WHERE UNCERTAINTY CHALLENGES CLASSICAL EXPLANATIONS OF PHYSICAL PHENOMENA",
+    "HUMAN BEHAVIOR INVOLVES COMPLEX COGNITIVE PROCESSES WHEREBY EMOTIONS INFLUENCE JUDGMENT WHILE RESEARCHERS EXAMINE MEMORY MOTIVATION AND ANXIETY THROUGH CAREFULLY DESIGNED EXPERIMENTS",
+    "LINGUISTS INVESTIGATE HOW DIVERSE LANGUAGES EVOLVE THROUGH PHONETIC SHIFTS GRAMMATICAL STRUCTURES AND VOCABULARY EXCHANGES WHILE EXAMINING QUIRKY EXPRESSIONS ACROSS GLOBAL COMMUNITIES",
+    "PROGRAMMERS DEVELOP EFFICIENT ALGORITHMS THAT ORGANIZE VAST QUANTITIES OF INFORMATION WHILE DEBUGGING COMPLEX SOFTWARE AND EXPLORING INNOVATIVE TECHNOLOGIES THROUGH EXPERIMENTAL PROJECTS"
+]
 
 
 def get_transition_cost(key_loc1, key_loc2):
@@ -221,7 +232,7 @@ def get_letter_info(individual, letter):
     }
 
 
-def fitness_keyboard(individual, sample_text=DEFAULT_SAMPLE_TEXT):
+def fitness_keyboard(individual, sample_texts=SAMPLE_TEXTS):
     """
     Evaluate the fitness of a keyboard layout on `sample_text`.
 
@@ -239,7 +250,7 @@ def fitness_keyboard(individual, sample_text=DEFAULT_SAMPLE_TEXT):
            total_penalty += HOME_DISTANCE_COST[curr_loc]
     4. Return `-total_penalty` so higher fitness = lower total movement/penalty (0 is ideal).
     """
-    if not sample_text:
+    if not sample_texts:
         return 0
 
     # Map each letter ('A'..'Z') to its physical key location (0..25) in this individual
@@ -248,28 +259,29 @@ def fitness_keyboard(individual, sample_text=DEFAULT_SAMPLE_TEXT):
     }
 
     total_penalty = 0
-    prev_loc = None
 
-    for raw_ch in sample_text:
-        ch = raw_ch.upper()
-        if ch not in letter_to_location:
-            # Non-letter / space: fingers return to their resting home positions
-            prev_loc = None
-            continue
-
-        curr_loc = letter_to_location[ch]
-
-        if prev_loc is not None and KEY_FINGERS[prev_loc] == KEY_FINGERS[curr_loc]:
-            # Consecutive use of the same finger:
-            # Penalize same-finger repeat + direct movement between prev_loc and curr_loc
-            total_penalty += SAME_FINGER_PENALTY
-            total_penalty += TRANSITION_COST_TABLE[prev_loc][curr_loc]
-        else:
-            # Different finger (or start of word):
-            # Transition between fingers is 0; finger moves from its resting location to curr_loc
-            total_penalty += HOME_DISTANCE_COST[curr_loc]
-
-        prev_loc = curr_loc
+    for sample_text in sample_texts:
+        prev_loc = None
+        for raw_ch in sample_text:
+            ch = raw_ch.upper()
+            if ch not in letter_to_location:
+                # Non-letter / space: fingers return to their resting home positions
+                prev_loc = None
+                continue
+        
+            curr_loc = letter_to_location[ch]
+        
+            if prev_loc is not None and KEY_FINGERS[prev_loc] == KEY_FINGERS[curr_loc]:
+                # Consecutive use of the same finger:
+                # Penalize same-finger repeat + direct movement between prev_loc and curr_loc
+                total_penalty += SAME_FINGER_PENALTY
+                total_penalty += TRANSITION_COST_TABLE[prev_loc][curr_loc]
+            else:
+                # Different finger (or start of word):
+                # Transition between fingers is 0; finger moves from its resting location to curr_loc
+                total_penalty += HOME_DISTANCE_COST[curr_loc]
+        
+            prev_loc = curr_loc
 
     # Negate penalty so the EA maximizes fitness (less penalty = higher fitness)
     return -total_penalty
