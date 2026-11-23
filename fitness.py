@@ -131,7 +131,7 @@ DISTANCE_LOOKUP = precompute_distance_lookup()
 # print(DISTANCE_LOOKUP)
 
 
-# Placeholder sample text until the full evaluation corpus is plugged in
+# Sample text that will be used to evaluate fitness. 20-35 words each, containing all letters at least once. The samples each pertain to different subjects to keep the vocabulary diverse
 SAMPLE_TEXTS = [
     "EVERY YOUNG ZEBRA QUICKLY EXPLORES VAST JUNGLES WHILE EXAMINING COLORFUL FUNGI AND OBSERVING HOW COMPLEX ECOSYSTEMS FLOURISH BENEATH THE BLAZING SUN",
     "BEYOND DISTANT GALAXIES MYSTERIOUS QUASARS EMIT BRILLIANT ULTRAVIOLET RADIATION WHILE ASTRONOMERS EXAMINE COSMIC PHENOMENA AND INVESTIGATE WHETHER EXTRATERRESTRIAL LIFE EXISTS",
@@ -147,17 +147,6 @@ SAMPLE_TEXTS = [
 
 PENALTY_INCREASE = 1
 PENALTY_MIN = 2
-
-
-# def get_transition_cost(key_loc1, key_loc2):
-#     """
-#     Return the penalty of moving directly from physical key_loc1 to key_loc2.
-
-#     Operates strictly on physical key location indices (0..26).
-#     Returns 0 if key_loc1 and key_loc2 use different fingers.
-#     """
-#     return TRANSITION_COST_TABLE[key_loc1][key_loc2]
-
 
 def get_letter_info(individual, letter):
     """
@@ -193,19 +182,17 @@ def fitness_keyboard(individual, sample_texts=SAMPLE_TEXTS):
     """
     Evaluate the fitness of a keyboard layout on `sample_text`.
 
-    How location-based evaluation works:
+    How distance-based evaluation works:
     ------------------------------------
     1. Map each letter in `individual` to its current physical key location index (0..25):
            letter_to_location = {letter: loc_idx for loc_idx, letter in enumerate(individual)}
-    2. Walk through `sample_text`, translating each character into its physical location
-       `curr_loc = letter_to_location[char]`.
+    2. Walk through `sample_texts`, computing the distance of finger travel for each sentence and summing
     3. All cost lookups use `prev_loc` and `curr_loc` (the physical key locations):
        - If `prev_loc` and `curr_loc` use the SAME finger (`KEY_FINGERS[prev_loc] == KEY_FINGERS[curr_loc]`):
-           total_penalty += SAME_FINGER_PENALTY + TRANSITION_COST_TABLE[prev_loc][curr_loc]
+           fitness += DISTANCE_LOOKUP * penalty, penalty += PENALTY_INCREASE
        - Otherwise (different fingers, or first key after reset):
-           # Transition cost between different fingers is 0; finger starts from its resting home key.
-           total_penalty += HOME_DISTANCE_COST[curr_loc]
-    4. Return `-total_penalty` so higher fitness = lower total movement/penalty (0 is ideal).
+           fitness += DISTANCE_LOOKUP, penalty is reset to PENALTY_MIN
+    4. Return `-fitness`, we want abs(fitness) to be minimized
     """
     if not sample_texts:
         return 0

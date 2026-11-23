@@ -247,9 +247,9 @@ def run_ea(
                 "Generation",
                 str(current_gen).zfill(3),
                 ": Best of generation",
-                pop_max,
+                -pop_max,
                 "\tGeneration average",
-                sum(population_fitness) / pop_size,
+                -sum(population_fitness) / pop_size,
             )
 
     return {
