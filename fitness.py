@@ -6,6 +6,8 @@ completely independent of which letters are assigned to those locations.
 The evolutionary algorithm mutates which letter occupies each physical key location.
 """
 
+from math import sqrt
+
 # Physical keyboard coordinates (x, y) for each key location index.
 #
 # x increases from left to right.
@@ -108,74 +110,26 @@ HOME_POSITIONS = {
     for finger, key_index in HOME_KEY_INDICES.items()
 }
 
-
-# ---------------------------------------------------------------------------
-# Hardcoded Location Penalty Tables (strictly indexed by physical location 0..26)
-# ---------------------------------------------------------------------------
-
-# 1. Penalty for moving a finger from its resting home location to physical location `k`.
-#    - 0 steps: Resting home locations (indices 10, 11, 12, 13, 16, 17, 18, 26)
-#    - 1 step:  Locations one step from rest (indices 0, 1, 2, 3, 6, 7, 8, 9, 14, 15, 19, 20, 21, 22, 24, 25)
-#    - 2 steps: Inner-column diagonal reach locations (indices 4, 5, 23)
-HOME_DISTANCE_COST = {
-    # Top row locations (0-9)
-    0: 1, 1: 1, 2: 1, 3: 1, 4: 2, 5: 2, 6: 1, 7: 1, 8: 1, 9: 1,
-    # Middle row locations (10-18)
-    10: 0, 11: 0, 12: 0, 13: 0, 14: 1, 15: 1, 16: 0, 17: 0, 18: 0,
-    # Bottom row locations (19-25)
-    19: 1, 20: 1, 21: 1, 22: 1, 23: 2, 24: 1, 25: 1,
-    # Fixed right-pinky resting location (26)
-    26: 0,
-}
-
-# 2. Pairwise movement costs between two physical key locations (loc1, loc2)
-#    assigned to the SAME finger.
-#    If two locations use DIFFERENT fingers, the transition cost between them is 0
-#    (the previous finger returns to its resting location, and the next finger moves
-#    from its own resting location using HOME_DISTANCE_COST).
-_SAME_FINGER_LOCATION_DISTANCES = {
-    # left_pinky physical locations: 0 (top), 10 (home), 19 (bottom)
-    (0, 10): 1, (0, 19): 2, (10, 19): 1,
-    # left_ring physical locations: 1 (top), 11 (home), 20 (bottom)
-    (1, 11): 1, (1, 20): 2, (11, 20): 1,
-    # left_middle physical locations: 2 (top), 12 (home), 21 (bottom)
-    (2, 12): 1, (2, 21): 2, (12, 21): 1,
-    # left_index physical locations: 3, 4 (top), 13 (home), 14 (middle inner), 22, 23 (bottom)
-    (3, 4): 1, (3, 13): 1, (3, 14): 2, (3, 22): 2, (3, 23): 3,
-    (4, 13): 2, (4, 14): 1, (4, 22): 2, (4, 23): 2,
-    (13, 14): 1, (13, 22): 1, (13, 23): 2,
-    (14, 22): 1, (14, 23): 1,
-    (22, 23): 1,
-    # right_index physical locations: 5, 6 (top), 15 (middle inner), 16 (home), 24, 25 (bottom)
-    (5, 6): 1, (5, 15): 1, (5, 16): 2, (5, 24): 2, (5, 25): 3,
-    (6, 15): 2, (6, 16): 1, (6, 24): 2, (6, 25): 2,
-    (15, 16): 1, (15, 24): 1, (15, 25): 2,
-    (16, 24): 1, (16, 25): 1,
-    (24, 25): 1,
-    # right_middle physical locations: 7 (top), 17 (home)
-    (7, 17): 1,
-    # right_ring physical locations: 8 (top), 18 (home)
-    (8, 18): 1,
-    # right_pinky physical locations: 9 (top), 26 (home)
-    (9, 26): 1,
-}
-
 # Full 27x27 physical location lookup table: TRANSITION_COST_TABLE[loc1][loc2]
 # - 0 whenever loc1 and loc2 use different fingers (or loc1 == loc2)
 # - Step distance between loc1 and loc2 whenever they use the same finger
 NUM_KEYS = len(KEY_POSITIONS)
-TRANSITION_COST_TABLE = [
-    [0 for _ in range(NUM_KEYS)] for _ in range(NUM_KEYS)
-]
 
-for (loc1, loc2), cost in _SAME_FINGER_LOCATION_DISTANCES.items():
-    TRANSITION_COST_TABLE[loc1][loc2] = cost
-    TRANSITION_COST_TABLE[loc2][loc1] = cost
+# Precomputes distances of all position pairs for lookup later on
+def precompute_distance_lookup() -> dict:
+    lookup = {}
+    for i in range(NUM_KEYS):
+        for j in range(NUM_KEYS):
+            # Euclidean distance between each key pair
+            (x1, y1) = KEY_POSITIONS[i]
+            (x2, y2) = KEY_POSITIONS[j]
+            dist = sqrt( (x2-x1)**2 + (y2-y1)**2 )
+            lookup[(i, j)] = dist
+    return lookup
 
+DISTANCE_LOOKUP = precompute_distance_lookup()
+# print(DISTANCE_LOOKUP)
 
-# Tunable penalty weights for fitness calculation
-SAME_FINGER_PENALTY = 1  # Extra penalty whenever the same finger is used consecutively
-SHIFT_PENALTY = 1        # Extra penalty when Shift is required
 
 # Placeholder sample text until the full evaluation corpus is plugged in
 SAMPLE_TEXTS = [
@@ -191,15 +145,18 @@ SAMPLE_TEXTS = [
     "PROGRAMMERS DEVELOP EFFICIENT ALGORITHMS THAT ORGANIZE VAST QUANTITIES OF INFORMATION WHILE DEBUGGING COMPLEX SOFTWARE AND EXPLORING INNOVATIVE TECHNOLOGIES THROUGH EXPERIMENTAL PROJECTS"
 ]
 
+PENALTY_INCREASE = 1
+PENALTY_MIN = 2
 
-def get_transition_cost(key_loc1, key_loc2):
-    """
-    Return the penalty of moving directly from physical key_loc1 to key_loc2.
 
-    Operates strictly on physical key location indices (0..26).
-    Returns 0 if key_loc1 and key_loc2 use different fingers.
-    """
-    return TRANSITION_COST_TABLE[key_loc1][key_loc2]
+# def get_transition_cost(key_loc1, key_loc2):
+#     """
+#     Return the penalty of moving directly from physical key_loc1 to key_loc2.
+
+#     Operates strictly on physical key location indices (0..26).
+#     Returns 0 if key_loc1 and key_loc2 use different fingers.
+#     """
+#     return TRANSITION_COST_TABLE[key_loc1][key_loc2]
 
 
 def get_letter_info(individual, letter):
@@ -258,12 +215,12 @@ def fitness_keyboard(individual, sample_texts=SAMPLE_TEXTS):
         letter: loc_idx for loc_idx, letter in enumerate(individual)
     }
 
-    total_penalty = 0
+    fitness = 0
 
     for sample_text in sample_texts:
+        penalty = PENALTY_MIN
         prev_loc = None
-        for raw_ch in sample_text:
-            ch = raw_ch.upper()
+        for ch in sample_text: 
             if ch not in letter_to_location:
                 # Non-letter / space: fingers return to their resting home positions
                 prev_loc = None
@@ -271,20 +228,31 @@ def fitness_keyboard(individual, sample_texts=SAMPLE_TEXTS):
         
             curr_loc = letter_to_location[ch]
         
-            if prev_loc is not None and KEY_FINGERS[prev_loc] == KEY_FINGERS[curr_loc]:
-                # Consecutive use of the same finger:
-                # Penalize same-finger repeat + direct movement between prev_loc and curr_loc
-                total_penalty += SAME_FINGER_PENALTY
-                total_penalty += TRANSITION_COST_TABLE[prev_loc][curr_loc]
+            if prev_loc is not None and KEY_FINGERS == KEY_FINGERS[curr_loc]:
+                # Consecutive use of same finger
+                # Penalize same-finger repeat and raise sequential penalty multiplier
+                fitness += DISTANCE_LOOKUP[(prev_loc, curr_loc)] * penalty
+                penalty += PENALTY_INCREASE
+                continue
+            else: 
+                # Reset penalty multiplier
+                penalty = PENALTY_MIN
+
+            if prev_loc == curr_loc:
+                # Same key -> no distance traveled
+                continue
             else:
-                # Different finger (or start of word):
-                # Transition between fingers is 0; finger moves from its resting location to curr_loc
-                total_penalty += HOME_DISTANCE_COST[curr_loc]
+                # Different finger/start of word (means finger returned to home)
+                # print(KEY_FINGERS[curr_loc])
+                # print(HOME_KEY_INDICES[KEY_FINGERS[curr_loc]], curr_loc)
+                home_key = HOME_KEY_INDICES[KEY_FINGERS[curr_loc]]
+                fitness += DISTANCE_LOOKUP[(home_key, curr_loc)]
+
         
             prev_loc = curr_loc
 
-    # Negate penalty so the EA maximizes fitness (less penalty = higher fitness)
-    return -total_penalty
+    # Negate fitness so the EA maximizes fitness (less penalty = higher fitness)
+    return -fitness
 
 
 def fitness_batch(batch, fitness_fn=fitness_keyboard):
